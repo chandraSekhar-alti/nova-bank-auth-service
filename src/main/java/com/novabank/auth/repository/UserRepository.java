@@ -1,5 +1,6 @@
 package com.novabank.auth.repository;
 
+import com.novabank.auth.entity.Role;
 import com.novabank.auth.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -14,4 +15,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
     boolean existsByEmail(String email);
 
     boolean existsByMobileNumber(String mobileNumber);
+
+
 }
