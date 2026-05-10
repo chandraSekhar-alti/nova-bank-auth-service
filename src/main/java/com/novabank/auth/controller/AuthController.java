@@ -1,7 +1,9 @@
 package com.novabank.auth.controller;
 
+import com.novabank.auth.dto.request.LoginRequestDto;
 import com.novabank.auth.dto.request.RegisterRequestDto;
 import com.novabank.auth.dto.response.ApiResponseDto;
+import com.novabank.auth.dto.response.LoginResponseDto;
 import com.novabank.auth.service.AuthService.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -33,5 +35,20 @@ public class AuthController {
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(response);
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<
+            ApiResponseDto<LoginResponseDto>
+            > loginUser(
+            @Valid
+            @RequestBody
+            LoginRequestDto requestDto
+    ) {
+
+        ApiResponseDto<LoginResponseDto> response =
+                authService.loginUser(requestDto);
+
+        return ResponseEntity.ok(response);
     }
 }
