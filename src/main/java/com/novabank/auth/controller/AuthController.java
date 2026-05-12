@@ -1,9 +1,12 @@
 package com.novabank.auth.controller;
 
 import com.novabank.auth.dto.request.LoginRequestDto;
+import com.novabank.auth.dto.request.LogoutRequestDto;
+import com.novabank.auth.dto.request.RefreshTokenRequestDto;
 import com.novabank.auth.dto.request.RegisterRequestDto;
 import com.novabank.auth.dto.response.ApiResponseDto;
 import com.novabank.auth.dto.response.LoginResponseDto;
+import com.novabank.auth.dto.response.RefreshTokenResponseDto;
 import com.novabank.auth.service.AuthService.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -49,6 +52,34 @@ public class AuthController {
         ApiResponseDto<LoginResponseDto> response =
                 authService.loginUser(requestDto);
 
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/refresh-token")
+    public ResponseEntity<
+            ApiResponseDto<RefreshTokenResponseDto>
+            > refreshToken(
+            @Valid
+            @RequestBody
+            RefreshTokenRequestDto requestDto
+    ) {
+
+        ApiResponseDto<RefreshTokenResponseDto>
+                response =
+                authService.refreshAccessToken(
+                        requestDto
+                );
+
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<ApiResponseDto<String>> logoutUser(
+            @Valid
+            @RequestBody
+            LogoutRequestDto logoutRequestDto
+    ){
+        ApiResponseDto<String> response = authService.logoutUser(logoutRequestDto);
         return ResponseEntity.ok(response);
     }
 }

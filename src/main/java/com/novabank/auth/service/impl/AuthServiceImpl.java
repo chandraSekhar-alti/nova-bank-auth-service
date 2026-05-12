@@ -1,9 +1,7 @@
 package com.novabank.auth.service.impl;
 
 
-import com.novabank.auth.dto.request.LoginRequestDto;
-import com.novabank.auth.dto.request.RefreshTokenRequestDto;
-import com.novabank.auth.dto.request.RegisterRequestDto;
+import com.novabank.auth.dto.request.*;
 import com.novabank.auth.dto.response.ApiResponseDto;
 import com.novabank.auth.dto.response.LoginResponseDto;
 import com.novabank.auth.dto.response.RefreshTokenResponseDto;
@@ -18,6 +16,8 @@ import com.novabank.auth.repository.UserRoleRepository;
 import com.novabank.auth.security.jwt.JwtService;
 import com.novabank.auth.security.service.CustomUserDetailsService;
 import com.novabank.auth.service.AuthService.AuthService;
+import com.novabank.auth.dto.response.RefreshTokenResponseDto;
+import org.springframework.security.core.userdetails.UserDetails;
 
 import lombok.RequiredArgsConstructor;
 
@@ -211,4 +211,22 @@ public class AuthServiceImpl implements AuthService {
         );
     }
 
+    @Override
+    public ApiResponseDto<String> logoutUser(LogoutRequestDto logoutRequestDto) {
+        RefreshToken refreshToken = refreshTokenRepository.findByToken(
+                logoutRequestDto.getRefreshToken()
+        )
+                .orElseThrow(() ->
+                        new RuntimeException("Invalid refresh token"));
+
+        refreshToken.setIsRevoked(true);
+
+        refreshTokenRepository.save(refreshToken);
+
+        return new ApiResponseDto<>(
+                true,
+                "Logout successful",
+                null
+        );
+    }
 }
