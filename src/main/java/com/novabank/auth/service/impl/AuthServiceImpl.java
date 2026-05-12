@@ -1,9 +1,12 @@
 package com.novabank.auth.service.impl;
 
 
+import com.novabank.auth.dto.request.LoginRequestDto;
+import com.novabank.auth.dto.request.RefreshTokenRequestDto;
 import com.novabank.auth.dto.request.RegisterRequestDto;
 import com.novabank.auth.dto.response.ApiResponseDto;
 import com.novabank.auth.dto.response.LoginResponseDto;
+import com.novabank.auth.dto.response.RefreshTokenResponseDto;
 import com.novabank.auth.entity.*;
 import com.novabank.auth.exception.MobileNumberAlreadyExistsException;
 import com.novabank.auth.exception.UserAlreadyExistsException;
@@ -15,14 +18,14 @@ import com.novabank.auth.repository.UserRoleRepository;
 import com.novabank.auth.security.jwt.JwtService;
 import com.novabank.auth.security.service.CustomUserDetailsService;
 import com.novabank.auth.service.AuthService.AuthService;
+
 import lombok.RequiredArgsConstructor;
+
 import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Service;
-import com.novabank.auth.dto.request.LoginRequestDto;
-import com.novabank.auth.entity.RefreshToken;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor
@@ -44,20 +47,20 @@ public class AuthServiceImpl implements AuthService {
             RegisterRequestDto registerRequestDto
     ) {
         //Checking if email is already exists
-        if(userRepository.existsByEmail(registerRequestDto.getEmail())) {
+        if (userRepository.existsByEmail(registerRequestDto.getEmail())) {
             throw new UserAlreadyExistsException(
                     "Email already exists: " + registerRequestDto.getEmail()
             );
         }
 
         //Checking if Mobile Number is already exists
-        if(userRepository.existsByMobileNumber(registerRequestDto.getMobileNumber())){
+        if (userRepository.existsByMobileNumber(registerRequestDto.getMobileNumber())) {
             throw new MobileNumberAlreadyExistsException(
                     "Mobile number already exists: " + registerRequestDto.getMobileNumber()
             );
         }
 
-        if(!registerRequestDto.getPassword().equals(registerRequestDto.getConfirmPassword())){
+        if (!registerRequestDto.getPassword().equals(registerRequestDto.getConfirmPassword())) {
             return new ApiResponseDto<>(
                     false,
                     "Password and Confirm Password do not match",
@@ -151,4 +154,61 @@ public class AuthServiceImpl implements AuthService {
                 responseDto
         );
     }
+
+    @Override
+    public ApiResponseDto<RefreshTokenResponseDto>
+    refreshAccessToken(
+            RefreshTokenRequestDto requestDto
+    ) {
+
+        RefreshToken refreshToken =
+                refreshTokenRepository
+                        .findByToken(
+                                requestDto.getRefreshToken()
+                        )
+                        .orElseThrow(() ->
+                                new RuntimeException(
+                                        "Invalid refresh token"
+                                )
+                        );
+
+        if (refreshToken.getIsRevoked()) {
+
+            throw new RuntimeException(
+                    "Refresh token revoked"
+            );
+        }
+
+        if (refreshToken.getExpiryDate()
+                .isBefore(java.time.LocalDateTime.now())) {
+
+            throw new RuntimeException(
+                    "Refresh token expired"
+            );
+        }
+
+        User user = refreshToken.getUser();
+
+        UserDetails userDetails =
+                customUserDetailsService
+                        .loadUserByUsername(
+                                user.getEmail()
+                        );
+
+        String newAccessToken =
+                jwtService.generateToken(userDetails);
+
+        RefreshTokenResponseDto responseDto =
+                new RefreshTokenResponseDto();
+
+        responseDto.setAccessToken(newAccessToken);
+        responseDto.setExpiresIn(900L);
+
+        return new ApiResponseDto<>(
+                true,
+                "Access token refreshed successfully",
+                responseDto
+        );
+    }
+
 }
