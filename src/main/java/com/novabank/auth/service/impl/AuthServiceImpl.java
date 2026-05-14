@@ -2,23 +2,15 @@ package com.novabank.auth.service.impl;
 
 
 import com.novabank.auth.dto.request.*;
-import com.novabank.auth.dto.response.ApiResponseDto;
-import com.novabank.auth.dto.response.LoginResponseDto;
-import com.novabank.auth.dto.response.RefreshTokenResponseDto;
+import com.novabank.auth.dto.response.*;
 import com.novabank.auth.entity.*;
 import com.novabank.auth.exception.MobileNumberAlreadyExistsException;
 import com.novabank.auth.exception.UserAlreadyExistsException;
 import com.novabank.auth.mapper.UserMapper;
-import com.novabank.auth.repository.RefreshTokenRepository;
-import com.novabank.auth.repository.RoleRepository;
-import com.novabank.auth.repository.UserRepository;
-import com.novabank.auth.repository.UserRoleRepository;
+import com.novabank.auth.repository.*;
 import com.novabank.auth.security.jwt.JwtService;
 import com.novabank.auth.security.service.CustomUserDetailsService;
 import com.novabank.auth.service.AuthService.AuthService;
-import com.novabank.auth.dto.response.RefreshTokenResponseDto;
-import org.springframework.security.core.userdetails.UserDetails;
-
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.security.authentication.AuthenticationManager;
@@ -26,6 +18,9 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+
+import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -35,6 +30,7 @@ public class AuthServiceImpl implements AuthService {
     private final RoleRepository roleRepository;
     private final UserRoleRepository userRoleRepository;
     private final PasswordEncoder passwordEncoder;
+    private final PasswordResetTokenRepository passwordResetTokenRepository;
 
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
@@ -214,8 +210,8 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public ApiResponseDto<String> logoutUser(LogoutRequestDto logoutRequestDto) {
         RefreshToken refreshToken = refreshTokenRepository.findByToken(
-                logoutRequestDto.getRefreshToken()
-        )
+                        logoutRequestDto.getRefreshToken()
+                )
                 .orElseThrow(() ->
                         new RuntimeException("Invalid refresh token"));
 
@@ -226,6 +222,77 @@ public class AuthServiceImpl implements AuthService {
         return new ApiResponseDto<>(
                 true,
                 "Logout successful",
+                null
+        );
+    }
+
+    @Override
+    public ApiResponseDto<ForgotPasswordResponseDto> forgotPassword(ForgotPasswordRequestDto forgotPasswordRequestDto) {
+
+        User user = userRepository.findByEmail(
+                forgotPasswordRequestDto.getEmail()
+        ).orElseThrow(() ->
+                new RuntimeException("User not found with email: " + forgotPasswordRequestDto.getEmail())
+        );
+
+        PasswordResetToken passwordResetToken = new PasswordResetToken();
+
+        String token = UUID.randomUUID().toString();
+
+        passwordResetToken.setToken(token);
+
+        passwordResetToken.setExpiryDate(
+                LocalDateTime.now().plusMinutes(15)
+        );
+
+        passwordResetToken.setUser(user);
+
+        passwordResetTokenRepository.save(passwordResetToken);
+
+        ForgotPasswordResponseDto forgotPasswordResponseDto = new ForgotPasswordResponseDto();
+        forgotPasswordResponseDto.setResetToken(token);
+
+        return new ApiResponseDto<>(
+                true,
+                "Password reset token generated successfully",
+                forgotPasswordResponseDto
+        );
+    }
+
+    @Override
+    public ApiResponseDto<String> resetPassword(ResetPasswordRequestDto requestDto) {
+
+        if (!requestDto.getNewPassword().equals(requestDto.getConfirmPassword())) {
+            throw new RuntimeException("New password and confirm password do not match! Try Again");
+        }
+
+        PasswordResetToken resetToken =
+                passwordResetTokenRepository.
+                        findByToken(requestDto.getToken())
+                        .orElseThrow(() ->
+                                new RuntimeException("Invalid password reset token")
+                        );
+
+        if(resetToken.getIsUsed()) {
+            throw new RuntimeException("Password reset token already used");
+        }
+
+        if(resetToken.getExpiryDate().isBefore(LocalDateTime.now())) {
+            throw new RuntimeException("Password reset token expired");
+        }
+
+        User user = resetToken.getUser();
+        user.setPasswordHash(
+                passwordEncoder.encode(requestDto.getNewPassword())
+        );
+
+        userRepository.save(user);
+        resetToken.setIsUsed(true);
+        passwordResetTokenRepository.save(resetToken);
+
+        return new ApiResponseDto<>(
+                true,
+                "Password reset successful",
                 null
         );
     }

@@ -1,10 +1,8 @@
 package com.novabank.auth.controller;
 
-import com.novabank.auth.dto.request.LoginRequestDto;
-import com.novabank.auth.dto.request.LogoutRequestDto;
-import com.novabank.auth.dto.request.RefreshTokenRequestDto;
-import com.novabank.auth.dto.request.RegisterRequestDto;
+import com.novabank.auth.dto.request.*;
 import com.novabank.auth.dto.response.ApiResponseDto;
+import com.novabank.auth.dto.response.ForgotPasswordResponseDto;
 import com.novabank.auth.dto.response.LoginResponseDto;
 import com.novabank.auth.dto.response.RefreshTokenResponseDto;
 import com.novabank.auth.service.AuthService.AuthService;
@@ -78,8 +76,28 @@ public class AuthController {
             @Valid
             @RequestBody
             LogoutRequestDto logoutRequestDto
-    ){
+    ) {
         ApiResponseDto<String> response = authService.logoutUser(logoutRequestDto);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<ApiResponseDto<ForgotPasswordResponseDto>> forgotPassword(
+            @Valid
+            @RequestBody
+            ForgotPasswordRequestDto forgotPasswordRequestDto
+    ) {
+        ApiResponseDto<ForgotPasswordResponseDto> response = authService.forgotPassword(forgotPasswordRequestDto);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<ApiResponseDto<String>> resetPassword(
+            @Valid
+            @RequestBody
+            ResetPasswordRequestDto requestDto
+    ){
+        ApiResponseDto<String> response = authService.resetPassword(requestDto);
         return ResponseEntity.ok(response);
     }
 }
