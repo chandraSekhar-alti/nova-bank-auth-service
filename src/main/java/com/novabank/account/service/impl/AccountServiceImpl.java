@@ -7,12 +7,15 @@ import com.novabank.account.dto.request.WithdrawRequestDto;
 import com.novabank.account.dto.response.BankAccountResponseDto;
 import com.novabank.account.entity.BankAccount;
 import com.novabank.account.enums.AccountStatus;
+import com.novabank.account.enums.TransactionType;
 import com.novabank.account.mapper.BankAccountMapper;
 import com.novabank.account.repository.BankAccountRepository;
 import com.novabank.account.service.AccountService.AccountService;
 import com.novabank.auth.dto.response.ApiResponseDto;
 import com.novabank.auth.entity.User;
 import com.novabank.auth.repository.UserRepository;
+import com.novabank.transaction.entity.Transaction;
+import com.novabank.transaction.repository.TransactionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,6 +30,7 @@ public class AccountServiceImpl implements AccountService {
 
     private final BankAccountRepository bankAccountRepository;
     private final UserRepository userRepository;
+    private final TransactionRepository transactionRepository;
 
     @Override
     public ApiResponseDto<BankAccountResponseDto> createBankAccount(
@@ -134,14 +138,32 @@ public class AccountServiceImpl implements AccountService {
 
         bankAccount.setBalance(newBalance);
 
-        BankAccount updatedAmount =
+        BankAccount updatedAccount =
                 bankAccountRepository
                         .save(bankAccount);
+
+        Transaction transaction = new Transaction();
+
+        transaction.setTransactionType(
+                TransactionType.DEPOSIT
+        );
+
+        transaction.setAmount(
+                requestDto.getAmount()
+        );
+
+        transaction.setDescription(
+                "Amount deposited"
+        );
+
+        transaction.setBankAccount(updatedAccount);
+
+        transactionRepository.save(transaction);
 
         return new ApiResponseDto<>(
                 true,
                 "Amount deposited successfully",
-                BankAccountMapper.toResponseDto(updatedAmount)
+                BankAccountMapper.toResponseDto(updatedAccount)
         );
 
     }
@@ -199,6 +221,15 @@ public class AccountServiceImpl implements AccountService {
         BankAccount updatedAccount =
                 bankAccountRepository
                         .save(account);
+
+        Transaction transaction = new Transaction();
+
+        transaction.setTransactionType(TransactionType.WITHDRAW);
+        transaction.setAmount(requestDto.getAmount());
+        transaction.setDescription("Amount withdrawn");
+        transaction.setBankAccount(updatedAccount);
+
+        transactionRepository.save(transaction);
 
         return new ApiResponseDto<>(
                 true,
@@ -277,6 +308,22 @@ public class AccountServiceImpl implements AccountService {
         );
         bankAccountRepository.save(senderAccount);
         bankAccountRepository.save(receiverAccount);
+
+        Transaction senderTransaction = new Transaction();
+        senderTransaction.setTransactionType(TransactionType.TRANSACTION_OUT);
+        senderTransaction.setAmount(requestDto.getAmount());
+        senderTransaction.setDescription("Transfer to " + receiverAccount.getAccountNumber());
+        senderTransaction.setBankAccount(senderAccount);
+        transactionRepository.save(senderTransaction);
+
+
+        Transaction receiverTransaction = new Transaction();
+
+        receiverTransaction.setTransactionType(TransactionType.TRANSACTION_IN);
+        receiverTransaction.setAmount(requestDto.getAmount());
+        receiverTransaction.setDescription("Transfer from " + senderAccount.getAccountNumber());
+        receiverTransaction.setBankAccount(receiverAccount);
+        transactionRepository.save(receiverTransaction);
 
         return new ApiResponseDto<>(
                 true,
