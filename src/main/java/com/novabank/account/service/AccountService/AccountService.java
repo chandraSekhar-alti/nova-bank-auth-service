@@ -2,6 +2,7 @@ package com.novabank.account.service.AccountService;
 
 import com.novabank.account.dto.request.CreateBankAccountRequestDto;
 import com.novabank.account.dto.request.DepositRequestDto;
+import com.novabank.account.dto.request.TransferRequestDto;
 import com.novabank.account.dto.request.WithdrawRequestDto;
 import com.novabank.account.dto.response.BankAccountResponseDto;
 import com.novabank.auth.dto.response.ApiResponseDto;
@@ -30,6 +31,12 @@ public interface AccountService {
     ApiResponseDto<BankAccountResponseDto>
     withdrawMoney(
             WithdrawRequestDto requestDto,
+            String userEmail
+    );
+
+    ApiResponseDto<String>
+    transferMoney(
+            TransferRequestDto requestDto,
             String userEmail
     );
 }

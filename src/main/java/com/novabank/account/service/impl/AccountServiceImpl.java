@@ -2,6 +2,7 @@ package com.novabank.account.service.impl;
 
 import com.novabank.account.dto.request.CreateBankAccountRequestDto;
 import com.novabank.account.dto.request.DepositRequestDto;
+import com.novabank.account.dto.request.TransferRequestDto;
 import com.novabank.account.dto.request.WithdrawRequestDto;
 import com.novabank.account.dto.response.BankAccountResponseDto;
 import com.novabank.account.entity.BankAccount;
@@ -146,6 +147,7 @@ public class AccountServiceImpl implements AccountService {
     }
 
     @Override
+    @Transactional
     public ApiResponseDto<BankAccountResponseDto> withdrawMoney(
             WithdrawRequestDto requestDto,
             String userEmail
@@ -202,6 +204,84 @@ public class AccountServiceImpl implements AccountService {
                 true,
                 "Amount withdrawn successfully",
                 BankAccountMapper.toResponseDto(updatedAccount)
+        );
+
+    }
+
+    @Override
+    @Transactional
+    public ApiResponseDto<String>
+    transferMoney(
+            TransferRequestDto requestDto,
+            String userEmail
+    ) {
+        if (requestDto.getFromAccountNumber().
+                equals(requestDto.getToAccountNumber())) {
+            throw new RuntimeException(
+                    "Cannot transfer to the same account"
+            );
+        }
+
+        User user =
+                userRepository
+                        .findByEmail(userEmail)
+                        .orElseThrow(
+                                () -> new RuntimeException(
+                                        "User not found"
+                                )
+                        );
+
+        BankAccount senderAccount =
+                bankAccountRepository
+                        .findByAccountNumber(
+                                requestDto.getFromAccountNumber()
+                        )
+                        .orElseThrow(
+                                () -> new RuntimeException(
+                                        "Sender account not found with account number: " + requestDto.getFromAccountNumber()
+                                )
+                        );
+
+        BankAccount receiverAccount =
+                bankAccountRepository
+                        .findByAccountNumber(
+                                requestDto.getToAccountNumber()
+                        )
+                        .orElseThrow(
+                                () -> new RuntimeException(
+                                        "Receiver account not found with account number: " + requestDto.getToAccountNumber()
+                                )
+                        );
+
+        if (senderAccount.getAccountStatus() != AccountStatus.ACTIVE ||
+                receiverAccount.getAccountStatus() != AccountStatus.ACTIVE) {
+            throw new RuntimeException(
+                    "Both accounts must be active for transfer"
+            );
+        }
+
+        if (senderAccount.getBalance().compareTo(requestDto.getAmount()) < 0) {
+            throw new RuntimeException(
+                    "Insufficient balance in sender account"
+            );
+        }
+
+        senderAccount.setBalance(
+                senderAccount.getBalance()
+                        .subtract(requestDto.getAmount())
+        );
+
+        receiverAccount.setBalance(
+                receiverAccount.getBalance()
+                        .add(requestDto.getAmount())
+        );
+        bankAccountRepository.save(senderAccount);
+        bankAccountRepository.save(receiverAccount);
+
+        return new ApiResponseDto<>(
+                true,
+                "Amount transfred successfully",
+                null
         );
 
     }
