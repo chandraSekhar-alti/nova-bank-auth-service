@@ -2,6 +2,7 @@ package com.novabank.account.service.impl;
 
 import com.novabank.account.dto.request.CreateBankAccountRequestDto;
 import com.novabank.account.dto.request.DepositRequestDto;
+import com.novabank.account.dto.request.WithdrawRequestDto;
 import com.novabank.account.dto.response.BankAccountResponseDto;
 import com.novabank.account.entity.BankAccount;
 import com.novabank.account.enums.AccountStatus;
@@ -113,20 +114,20 @@ public class AccountServiceImpl implements AccountService {
                                 )
                         );
 
-        if(!bankAccount.getUser()
-                .getId().equals(user.getId())){
+        if (!bankAccount.getUser()
+                .getId().equals(user.getId())) {
             throw new RuntimeException(
                     "Unauthorized access to bank account"
             );
         }
 
-        if(bankAccount.getAccountStatus() != AccountStatus.ACTIVE){
+        if (bankAccount.getAccountStatus() != AccountStatus.ACTIVE) {
             throw new RuntimeException(
                     "Cannot deposit to an inactive account"
             );
         }
 
-         BigDecimal newBalance =
+        BigDecimal newBalance =
                 bankAccount.getBalance()
                         .add(requestDto.getAmount());
 
@@ -136,13 +137,75 @@ public class AccountServiceImpl implements AccountService {
                 bankAccountRepository
                         .save(bankAccount);
 
-            return new ApiResponseDto<>(
-                    true,
-                    "Amount deposited successfully",
-                    BankAccountMapper.toResponseDto(updatedAmount)
-            );
+        return new ApiResponseDto<>(
+                true,
+                "Amount deposited successfully",
+                BankAccountMapper.toResponseDto(updatedAmount)
+        );
 
     }
+
+    @Override
+    public ApiResponseDto<BankAccountResponseDto> withdrawMoney(
+            WithdrawRequestDto requestDto,
+            String userEmail
+    ) {
+        User user =
+                userRepository
+                        .findByEmail(userEmail)
+                        .orElseThrow(
+                                () -> new RuntimeException(
+                                        "User not found"
+                                )
+                        );
+
+        BankAccount account =
+                bankAccountRepository
+                        .findByAccountNumber(
+                                requestDto.getAccountNumber()
+                        )
+                        .orElseThrow(
+                                () -> new RuntimeException(
+                                        "Bank account not found with account number: " + requestDto.getAccountNumber()
+                                )
+                        );
+
+        if (!account.getUser()
+                .getId().equals(user.getId())) {
+            throw new RuntimeException(
+                    "Unauthorized access to bank account"
+            );
+        }
+
+        if (account.getAccountStatus() != AccountStatus.ACTIVE) {
+            throw new RuntimeException(
+                    "Cannot withdraw from an inactive account"
+            );
+        }
+
+        if (account.getBalance().compareTo(requestDto.getAmount()) < 0) {
+            throw new RuntimeException(
+                    "Insufficient balance"
+            );
+        }
+
+        account.setBalance(
+                account.getBalance()
+                        .subtract(requestDto.getAmount())
+        );
+
+        BankAccount updatedAccount =
+                bankAccountRepository
+                        .save(account);
+
+        return new ApiResponseDto<>(
+                true,
+                "Amount withdrawn successfully",
+                BankAccountMapper.toResponseDto(updatedAccount)
+        );
+
+    }
+
 
     private String generateAccountNumber() {
         /**

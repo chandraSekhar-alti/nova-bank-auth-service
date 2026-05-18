@@ -2,6 +2,7 @@ package com.novabank.account.controller;
 
 import com.novabank.account.dto.request.CreateBankAccountRequestDto;
 import com.novabank.account.dto.request.DepositRequestDto;
+import com.novabank.account.dto.request.WithdrawRequestDto;
 import com.novabank.account.dto.response.BankAccountResponseDto;
 import com.novabank.account.service.AccountService.AccountService;
 import com.novabank.auth.dto.response.ApiResponseDto;
@@ -74,6 +75,28 @@ public class AccountController {
         ApiResponseDto<BankAccountResponseDto>
                 response =
                 accountService.depositMoney(
+                        requestDto,
+                        userEmail
+                );
+
+        return ResponseEntity.ok(response);
+
+    }
+
+    @PostMapping("withdraw")
+    public ResponseEntity<
+            ApiResponseDto<BankAccountResponseDto>
+            > withdrawMoney(
+            @Valid
+            @RequestBody
+            WithdrawRequestDto requestDto,
+            Authentication authentication
+    ) {
+        String userEmail = authentication.getName();
+
+        ApiResponseDto<BankAccountResponseDto>
+                response =
+                accountService.withdrawMoney(
                         requestDto,
                         userEmail
                 );
