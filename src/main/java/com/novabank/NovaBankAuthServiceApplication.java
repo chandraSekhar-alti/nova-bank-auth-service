@@ -1,4 +1,4 @@
-package com.novabank.auth;
+package com.novabank;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;

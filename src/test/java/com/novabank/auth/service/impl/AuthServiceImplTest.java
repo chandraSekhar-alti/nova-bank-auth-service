@@ -12,7 +12,6 @@ import com.novabank.auth.exception.UserAlreadyExistsException;
 import com.novabank.auth.repository.*;
 import com.novabank.auth.security.jwt.JwtService;
 import com.novabank.auth.security.service.CustomUserDetailsService;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
