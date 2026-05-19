@@ -7,8 +7,8 @@ import com.novabank.auth.entity.Role;
 import com.novabank.auth.entity.RoleType;
 import com.novabank.auth.entity.User;
 import com.novabank.auth.entity.UserRole;
-import com.novabank.auth.exception.MobileNumberAlreadyExistsException;
-import com.novabank.auth.exception.UserAlreadyExistsException;
+import com.novabank.common.exceptions.MobileNumberAlreadyExistsException;
+import com.novabank.common.exceptions.UserAlreadyExistsException;
 import com.novabank.auth.repository.*;
 import com.novabank.auth.security.jwt.JwtService;
 import com.novabank.auth.security.service.CustomUserDetailsService;
@@ -21,7 +21,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.web.bind.annotation.RequestBody;
 
 import java.util.Optional;
 

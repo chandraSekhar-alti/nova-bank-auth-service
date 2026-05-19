@@ -1,4 +1,4 @@
-package com.novabank.auth.exception;
+package com.novabank.common.exceptions;
 
 public class MobileNumberAlreadyExistsException extends RuntimeException {
 

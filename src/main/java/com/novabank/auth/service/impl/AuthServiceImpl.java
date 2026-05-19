@@ -4,13 +4,14 @@ package com.novabank.auth.service.impl;
 import com.novabank.auth.dto.request.*;
 import com.novabank.auth.dto.response.*;
 import com.novabank.auth.entity.*;
-import com.novabank.auth.exception.MobileNumberAlreadyExistsException;
-import com.novabank.auth.exception.UserAlreadyExistsException;
+import com.novabank.common.exceptions.MobileNumberAlreadyExistsException;
+import com.novabank.common.exceptions.UserAlreadyExistsException;
 import com.novabank.auth.mapper.UserMapper;
 import com.novabank.auth.repository.*;
 import com.novabank.auth.security.jwt.JwtService;
 import com.novabank.auth.security.service.CustomUserDetailsService;
 import com.novabank.auth.service.AuthService.AuthService;
+import com.novabank.common.exceptions.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.security.authentication.AuthenticationManager;
@@ -117,7 +118,7 @@ public class AuthServiceImpl implements AuthService {
         User user = userRepository
                 .findByEmail(requestDto.getEmail())
                 .orElseThrow(() ->
-                        new RuntimeException("User not found")
+                        new ResourceNotFoundException("User not found")
                 );
 
         String refreshTokenValue =
@@ -232,7 +233,7 @@ public class AuthServiceImpl implements AuthService {
         User user = userRepository.findByEmail(
                 forgotPasswordRequestDto.getEmail()
         ).orElseThrow(() ->
-                new RuntimeException("User not found with email: " + forgotPasswordRequestDto.getEmail())
+                new ResourceNotFoundException("User not found with email: " + forgotPasswordRequestDto.getEmail())
         );
 
         PasswordResetToken passwordResetToken = new PasswordResetToken();

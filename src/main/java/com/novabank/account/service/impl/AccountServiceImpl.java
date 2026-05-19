@@ -14,6 +14,8 @@ import com.novabank.account.service.AccountService.AccountService;
 import com.novabank.auth.dto.response.ApiResponseDto;
 import com.novabank.auth.entity.User;
 import com.novabank.auth.repository.UserRepository;
+import com.novabank.common.exceptions.InsufficientBalanceException;
+import com.novabank.common.exceptions.ResourceNotFoundException;
 import com.novabank.transaction.entity.Transaction;
 import com.novabank.transaction.repository.TransactionRepository;
 import lombok.RequiredArgsConstructor;
@@ -41,7 +43,7 @@ public class AccountServiceImpl implements AccountService {
         User user = userRepository
                 .findByEmail(userEmail)
                 .orElseThrow(
-                        () -> new RuntimeException(
+                        () -> new ResourceNotFoundException(
                                 "User not found with email: " + userEmail
                         )
                 );
@@ -71,7 +73,7 @@ public class AccountServiceImpl implements AccountService {
         User user = userRepository.
                 findByEmail(userEmail)
                 .orElseThrow(
-                        () -> new RuntimeException(
+                        () -> new ResourceNotFoundException(
                                 "user not found"
                         )
                 );
@@ -103,7 +105,7 @@ public class AccountServiceImpl implements AccountService {
         User user = userRepository
                 .findByEmail(userEmail)
                 .orElseThrow(
-                        () -> new RuntimeException(
+                        () -> new ResourceNotFoundException(
                                 "User not found"
                         )
                 );
@@ -178,7 +180,7 @@ public class AccountServiceImpl implements AccountService {
                 userRepository
                         .findByEmail(userEmail)
                         .orElseThrow(
-                                () -> new RuntimeException(
+                                () -> new ResourceNotFoundException(
                                         "User not found"
                                 )
                         );
@@ -208,7 +210,7 @@ public class AccountServiceImpl implements AccountService {
         }
 
         if (account.getBalance().compareTo(requestDto.getAmount()) < 0) {
-            throw new RuntimeException(
+            throw new InsufficientBalanceException(
                     "Insufficient balance"
             );
         }
@@ -257,7 +259,7 @@ public class AccountServiceImpl implements AccountService {
                 userRepository
                         .findByEmail(userEmail)
                         .orElseThrow(
-                                () -> new RuntimeException(
+                                () -> new ResourceNotFoundException(
                                         "User not found"
                                 )
                         );
@@ -292,7 +294,7 @@ public class AccountServiceImpl implements AccountService {
         }
 
         if (senderAccount.getBalance().compareTo(requestDto.getAmount()) < 0) {
-            throw new RuntimeException(
+            throw new InsufficientBalanceException(
                     "Insufficient balance in sender account"
             );
         }
