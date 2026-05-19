@@ -1,0 +1,37 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: nova_bank_mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: nova_bank_auth_db
+      MYSQL_USER: nova_admin_user
+      MYSQL_PASSWORD: Nova@123
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    container_name: nova_bank_app
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/nova_bank_auth_db
+      SPRING_DATASOURCE_USERNAME: nova_admin_user
+      SPRING_DATASOURCE_PASSWORD: Nova@123
+      JWT_SECRET_KEY : YjM0NjM0YjE2NmQ4NzQ2Y2YxOWJmODFkNjQ4YzQ5N2Q0OWQ2M2Q5YzY1ZmJhN2I0NzA2YzY0ZWQxNTA2M2Q4OA==
+    ports:
+      - "8081:8081"
+
+volumes:
+  mysql_data:
