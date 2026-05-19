@@ -1,0 +1,22 @@
+spring:
+  datasource:
+    url: jdbc:mysql://hopper.proxy.rlwy.net:23588/railway
+    username: root
+    password: SgYJIpQoaDeqUKSZvLFqdpHVrZTfzqpp
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+
+    show-sql: true
+
+    properties:
+      hibernate:
+        format_sql: true
+
+jwt:
+  secret-key: YjM0NjM0YjE2NmQ4NzQ2Y2YxOWJmODFkNjQ4YzQ5N2Q0OWQ2M2Q5YzY1ZmJhN2I0NzA2YzY0ZWQxNTA2M2Q4OA==
+
+server:
+  port: 8081
