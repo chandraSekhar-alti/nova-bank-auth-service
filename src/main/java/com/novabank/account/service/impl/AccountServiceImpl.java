@@ -20,6 +20,7 @@ import com.novabank.common.exceptions.ResourceNotFoundException;
 import com.novabank.common.exceptions.UnauthorizedException;
 import com.novabank.transaction.entity.Transaction;
 import com.novabank.transaction.repository.TransactionRepository;
+import com.novabank.transaction.service.TramsactionService.TransactionAuditService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -37,6 +38,7 @@ public class AccountServiceImpl implements AccountService {
     private final BankAccountRepository bankAccountRepository;
     private final UserRepository userRepository;
     private final TransactionRepository transactionRepository;
+    private final TransactionAuditService transactionAuditService;
 
     @Override
     public ApiResponseDto<BankAccountResponseDto> createBankAccount(
@@ -113,7 +115,7 @@ public class AccountServiceImpl implements AccountService {
                 bankAccountRepository
                         .save(bankAccount);
 
-        createTransaction(
+        transactionAuditService.createTransaction(
                 updatedAccount,
                 TransactionType.DEPOSIT,
                 requestDto.getAmount(),
@@ -153,7 +155,7 @@ public class AccountServiceImpl implements AccountService {
                 bankAccountRepository
                         .save(account);
 
-        createTransaction(
+        transactionAuditService.createTransaction(
                 updatedAccount,
                 TransactionType.WITHDRAW,
                 requestDto.getAmount(),
@@ -207,20 +209,19 @@ public class AccountServiceImpl implements AccountService {
         bankAccountRepository.save(senderAccount);
         bankAccountRepository.save(receiverAccount);
 
-        createTransaction(
+        transactionAuditService.createTransaction(
                 senderAccount,
                 TransactionType.TRANSACTION_OUT,
                 requestDto.getAmount(),
                 "Transfer to " + receiverAccount.getAccountNumber()
         );
 
-        createTransaction(
+        transactionAuditService.createTransaction(
                 receiverAccount,
                 TransactionType.TRANSACTION_IN,
                 requestDto.getAmount(),
                 "Transfer from " + senderAccount.getAccountNumber()
         );
-
 
         log.info("Transfer successful. userId={}, userEmail={}, From Account={}, To Account={}, Amount={}", user.getId(), userEmail, requestDto.getFromAccountNumber(), requestDto.getToAccountNumber(), requestDto.getAmount());
 
@@ -287,16 +288,6 @@ public class AccountServiceImpl implements AccountService {
         if (bankAccount.getBalance().compareTo(amount) < 0) {
             throw new InsufficientBalanceException("Insufficient balance in account: " + bankAccount.getAccountNumber());
         }
-    }
-
-    private void createTransaction(BankAccount account, TransactionType transactionType, BigDecimal amount, String description) {
-        Transaction transaction = new Transaction();
-
-        transaction.setBankAccount(account);
-        transaction.setTransactionType(transactionType);
-        transaction.setAmount(amount);
-        transaction.setDescription(description);
-        transactionRepository.save(transaction);
     }
 
 }
