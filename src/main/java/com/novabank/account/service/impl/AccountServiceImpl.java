@@ -11,15 +11,12 @@ import com.novabank.account.enums.TransactionType;
 import com.novabank.account.mapper.BankAccountMapper;
 import com.novabank.account.repository.BankAccountRepository;
 import com.novabank.account.service.AccountService.AccountService;
+import com.novabank.account.service.validation.AccountValidationServiceImpl;
+import com.novabank.account.utils.AccountNumberGenerator;
 import com.novabank.auth.dto.response.ApiResponseDto;
 import com.novabank.auth.entity.User;
 import com.novabank.auth.repository.UserRepository;
-import com.novabank.common.exceptions.BadRequestException;
-import com.novabank.common.exceptions.InsufficientBalanceException;
 import com.novabank.common.exceptions.ResourceNotFoundException;
-import com.novabank.common.exceptions.UnauthorizedException;
-import com.novabank.transaction.entity.Transaction;
-import com.novabank.transaction.repository.TransactionRepository;
 import com.novabank.transaction.service.TramsactionService.TransactionAuditService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -37,8 +34,9 @@ public class AccountServiceImpl implements AccountService {
 
     private final BankAccountRepository bankAccountRepository;
     private final UserRepository userRepository;
-    private final TransactionRepository transactionRepository;
     private final TransactionAuditService transactionAuditService;
+    private final AccountValidationServiceImpl accountValidationService;
+    private final AccountNumberGenerator accountNumberGenerator;
 
     @Override
     public ApiResponseDto<BankAccountResponseDto> createBankAccount(
@@ -48,7 +46,7 @@ public class AccountServiceImpl implements AccountService {
         log.info("Creating bank account for user: {}", userEmail);
 
         User user = getUserByEmail(userEmail);
-        String accountNumber = generateAccountNumber();
+        String accountNumber = accountNumberGenerator.generateAccountNumber();
 
         BankAccount bankAccount = new BankAccount();
         bankAccount.setAccountNumber(accountNumber);
@@ -102,8 +100,8 @@ public class AccountServiceImpl implements AccountService {
 
         User user = getUserByEmail(userEmail);
         BankAccount bankAccount = getAccountByNumber(requestDto.getAccountNumber());
-        validateAccountOwnership(bankAccount, user);
-        validateAccountStatusIsActive(bankAccount);
+        accountValidationService.validateAccountOwnership(bankAccount, user);
+        accountValidationService.validateAccountStatusIsActive(bankAccount);
 
         BigDecimal newBalance =
                 bankAccount.getBalance()
@@ -142,9 +140,9 @@ public class AccountServiceImpl implements AccountService {
         User user = getUserByEmail(userEmail);
 
         BankAccount account = getAccountByNumber(requestDto.getAccountNumber());
-        validateAccountOwnership(account, user);
-        validateAccountStatusIsActive(account);
-        validateSufficientBalance(account, requestDto.getAmount());
+        accountValidationService.validateAccountOwnership(account, user);
+        accountValidationService.validateAccountStatusIsActive(account);
+        accountValidationService.validateSufficientBalance(account, requestDto.getAmount());
 
         account.setBalance(
                 account.getBalance()
@@ -192,10 +190,10 @@ public class AccountServiceImpl implements AccountService {
         BankAccount senderAccount = getAccountByNumber(requestDto.getFromAccountNumber());
         BankAccount receiverAccount = getAccountByNumber(requestDto.getToAccountNumber());
 
-        validateAccountStatusIsActive(senderAccount);
-        validateAccountStatusIsActive(receiverAccount);
+        accountValidationService.validateAccountStatusIsActive(senderAccount);
+        accountValidationService.validateAccountStatusIsActive(receiverAccount);
 
-        validateSufficientBalance(senderAccount, requestDto.getAmount());
+        accountValidationService.validateSufficientBalance(senderAccount, requestDto.getAmount());
 
         senderAccount.setBalance(
                 senderAccount.getBalance()
@@ -234,21 +232,6 @@ public class AccountServiceImpl implements AccountService {
     }
 
 
-    private String generateAccountNumber() {
-        /*
-         * Need to implement later :
-         * Branch/Region Code (2–3 digits): Identifies where the account was opened.
-         * Product/Account Type Code (2 digits): Identifies if it's Savings (e.g., 10), Current (20), Loan (30), etc.
-         * Unique Sequence Number (5–7 digits): A sequential or masked auto-incrementing number from your database.
-         * Check Digit (1 digit): A final digit calculated using a checksum algorithm (like Luhn or Modulo 11) to catch typos and data entry errors.
-         */
-
-        Random random = new Random();
-        return "NB"
-                + (100000000)
-                + random.nextInt(900000000);
-    }
-
     private User getUserByEmail(String userEmail) {
 
         return userRepository.findByEmail(userEmail)
@@ -268,26 +251,6 @@ public class AccountServiceImpl implements AccountService {
                             return new RuntimeException("Bank account not found with account number: " + accountNumber);
                         }
                 );
-    }
-
-    private void validateAccountOwnership(BankAccount bankAccount, User user) {
-        if (!bankAccount.getId().equals(user.getId())) {
-            log.warn("Unauthorized access attempt. userEmail={}, accountNumber={}", user.getEmail(), bankAccount.getAccountNumber());
-            throw new UnauthorizedException("Unauthorized access to bank account");
-        }
-    }
-
-    private void validateAccountStatusIsActive(BankAccount bankAccount) {
-        if (bankAccount.getAccountStatus() != AccountStatus.ACTIVE) {
-            log.warn("Attempt to operate on inactive account: accountNumber={}", bankAccount.getAccountNumber());
-            throw new BadRequestException("Bank account is not active");
-        }
-    }
-
-    private void validateSufficientBalance(BankAccount bankAccount, BigDecimal amount) {
-        if (bankAccount.getBalance().compareTo(amount) < 0) {
-            throw new InsufficientBalanceException("Insufficient balance in account: " + bankAccount.getAccountNumber());
-        }
     }
 
 }
