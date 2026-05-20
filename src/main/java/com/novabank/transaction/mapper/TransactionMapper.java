@@ -2,12 +2,14 @@ package com.novabank.transaction.mapper;
 
 import com.novabank.transaction.dto.response.TransactionResponseDto;
 import com.novabank.transaction.entity.Transaction;
+import org.springframework.stereotype.Component;
 
+@Component
 public class TransactionMapper {
     private TransactionMapper(){
     }
 
-    public static TransactionResponseDto toTransactionResponse(
+    public TransactionResponseDto toTransactionResponse(
             Transaction transaction
     ){
         TransactionResponseDto responseDto = new TransactionResponseDto();

@@ -4,13 +4,15 @@ import com.novabank.auth.dto.request.RegisterRequestDto;
 import com.novabank.auth.dto.response.UserProfileResponseDto;
 import com.novabank.auth.entity.AccountStatus;
 import com.novabank.auth.entity.User;
+import org.springframework.stereotype.Component;
 
+@Component
 public class UserMapper {
 
     private UserMapper(){
     }
 
-    public static User toEntity(RegisterRequestDto dto){
+    public User toEntity(RegisterRequestDto dto){
         User user = new User();
 
         user.setFirstName(dto.getFirstName());

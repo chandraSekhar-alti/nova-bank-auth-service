@@ -37,6 +37,7 @@ public class AccountServiceImpl implements AccountService {
     private final TransactionAuditService transactionAuditService;
     private final AccountValidationServiceImpl accountValidationService;
     private final AccountNumberGenerator accountNumberGenerator;
+    private final BankAccountMapper bankAccountMapper;
 
     @Override
     public ApiResponseDto<BankAccountResponseDto> createBankAccount(
@@ -62,7 +63,7 @@ public class AccountServiceImpl implements AccountService {
         return new ApiResponseDto<>(
                 true,
                 "Bank Account created successfully",
-                BankAccountMapper.toResponseDto(savedAccount)
+                bankAccountMapper.toResponseDto(savedAccount)
         );
     }
 
@@ -79,7 +80,7 @@ public class AccountServiceImpl implements AccountService {
         List<BankAccountResponseDto> responseList =
                 accounts.stream()
                         .map(
-                                BankAccountMapper::toResponseDto
+                                bankAccountMapper::toResponseDto
                         ).toList();
 
         return new ApiResponseDto<>(
@@ -125,7 +126,7 @@ public class AccountServiceImpl implements AccountService {
         return new ApiResponseDto<>(
                 true,
                 "Amount deposited successfully",
-                BankAccountMapper.toResponseDto(updatedAccount)
+                bankAccountMapper.toResponseDto(updatedAccount)
         );
 
     }
@@ -165,7 +166,7 @@ public class AccountServiceImpl implements AccountService {
         return new ApiResponseDto<>(
                 true,
                 "Amount withdrawn successfully",
-                BankAccountMapper.toResponseDto(updatedAccount)
+                bankAccountMapper.toResponseDto(updatedAccount)
         );
 
     }

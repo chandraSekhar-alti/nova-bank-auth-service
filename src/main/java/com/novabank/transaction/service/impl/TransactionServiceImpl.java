@@ -23,7 +23,7 @@ import java.util.List;
 /**
  * Service class for transaction-related operations.
  * Handles retrieval of bank account transactions with proper authorization.
- *
+ * <p>
  * Enterprise Standards Applied:
  * - Input validation to prevent null/empty values
  * - Specific domain exceptions for different failure scenarios
@@ -40,10 +40,11 @@ public class TransactionServiceImpl implements TransactionService {
     private final TransactionRepository transactionRepository;
     private final BankAccountRepository bankAccountRepository;
     private final UserRepository userRepository;
+    private final TransactionMapper transactionMapper;
 
     /**
      * Retrieves all transactions for a specific bank account.
-     *
+     * <p>
      * WHY @Transactional(readOnly = true):
      * - Optimizes database performance for read-only operations
      * - Prevents accidental modifications within the method
@@ -53,8 +54,8 @@ public class TransactionServiceImpl implements TransactionService {
      * @param accountNumber The account number to fetch transactions for
      * @param userEmail     The email of the authenticated user
      * @return ApiResponseDto containing list of transactions
-     * @throws ResourceNotFoundException if user is not found
-     * @throws AccountNotFoundException  if account is not found
+     * @throws ResourceNotFoundException     if user is not found
+     * @throws AccountNotFoundException      if account is not found
      * @throws InvalidAccountAccessException if user lacks permission to access account
      */
     @Override
@@ -125,7 +126,7 @@ public class TransactionServiceImpl implements TransactionService {
         List<TransactionResponseDto> responseList = transactionRepository
                 .findByBankAccountOrderByCreatedAtDesc(bankAccount)
                 .stream()
-                .map(TransactionMapper::toTransactionResponse)
+                .map(transactionMapper::toTransactionResponse)
                 .toList();
 
         log.info("Transactions retrieved successfully - userId={}, accountId={}, transactionCount={}",
@@ -140,9 +141,9 @@ public class TransactionServiceImpl implements TransactionService {
 
     /**
      * Validates input parameters to ensure non-null and non-empty values.
-     *
+     * <p>
      * WHY: Prevents NullPointerException and ensures API contract compliance.
-     *      Business logic depends on valid inputs.
+     * Business logic depends on valid inputs.
      *
      * @param accountNumber The account number to validate
      * @param userEmail     The user email to validate
@@ -162,9 +163,9 @@ public class TransactionServiceImpl implements TransactionService {
 
     /**
      * Checks if a user owns a specific bank account.
-     *
+     * <p>
      * WHY: Encapsulates authorization logic for reusability and maintainability.
-     *      Single responsibility principle - separate authorization from business logic.
+     * Single responsibility principle - separate authorization from business logic.
      *
      * @param bankAccount The bank account to check ownership of
      * @param user        The user to verify ownership for

@@ -40,6 +40,8 @@ public class AuthServiceImpl implements AuthService {
     private final CustomUserDetailsService customUserDetailsService;
     private final RefreshTokenRepository refreshTokenRepository;
 
+    private final UserMapper userMapper;
+
 
     @Override
     public ApiResponseDto<String> registerUser(
@@ -67,7 +69,7 @@ public class AuthServiceImpl implements AuthService {
             );
         }
 
-        User user = UserMapper.toEntity(registerRequestDto);
+        User user = userMapper.toEntity(registerRequestDto);
 
         user.setPasswordHash(
                 passwordEncoder.encode(
