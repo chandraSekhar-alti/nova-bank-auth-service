@@ -14,8 +14,10 @@ import com.novabank.account.service.AccountService.AccountService;
 import com.novabank.auth.dto.response.ApiResponseDto;
 import com.novabank.auth.entity.User;
 import com.novabank.auth.repository.UserRepository;
+import com.novabank.common.exceptions.BadRequestException;
 import com.novabank.common.exceptions.InsufficientBalanceException;
 import com.novabank.common.exceptions.ResourceNotFoundException;
+import com.novabank.common.exceptions.UnauthorizedException;
 import com.novabank.transaction.entity.Transaction;
 import com.novabank.transaction.repository.TransactionRepository;
 import lombok.RequiredArgsConstructor;
@@ -43,14 +45,7 @@ public class AccountServiceImpl implements AccountService {
     ) {
         log.info("Creating bank account for user: {}", userEmail);
 
-        User user = userRepository
-                .findByEmail(userEmail)
-                .orElseThrow(
-                        () -> new ResourceNotFoundException(
-                                "User not found with email: " + userEmail
-                        )
-                );
-
+        User user = getUserByEmail(userEmail);
         String accountNumber = generateAccountNumber();
 
         BankAccount bankAccount = new BankAccount();
@@ -75,13 +70,7 @@ public class AccountServiceImpl implements AccountService {
     public ApiResponseDto<List<BankAccountResponseDto>> fetchALlBankAccounts(
             String userEmail
     ) {
-        User user = userRepository.
-                findByEmail(userEmail)
-                .orElseThrow(
-                        () -> new ResourceNotFoundException(
-                                "user not found"
-                        )
-                );
+        User user = getUserByEmail(userEmail);
 
         List<BankAccount> accounts =
                 bankAccountRepository
@@ -109,33 +98,10 @@ public class AccountServiceImpl implements AccountService {
     ) {
         log.info("Deposit initiated. User: {}, Account Number: {}, Amount: {}", userEmail, requestDto.getAccountNumber(), requestDto.getAmount());
 
-        User user = userRepository
-                .findByEmail(userEmail)
-                .orElseThrow(
-                        () -> new ResourceNotFoundException(
-                                "User not found"
-                        )
-                );
-
-        BankAccount bankAccount =
-                bankAccountRepository
-                        .findByAccountNumber(
-                                requestDto.getAccountNumber()
-                        )
-                        .orElseThrow(() -> {
-                            log.warn("Bank account not found for deposit. accountNumber={}", requestDto.getAccountNumber());
-                            return new RuntimeException("Bank account not found with account number: " + requestDto.getAccountNumber());
-                        });
-
-        if (!bankAccount.getUser().getId().equals(user.getId())) {
-            log.error("Unauthorized access attempt for deposit. userEmail={}, accountNumber={}", user.getEmail(), requestDto.getAccountNumber());
-            throw new RuntimeException("Unauthorized access to bank account");
-        }
-
-        if (bankAccount.getAccountStatus() != AccountStatus.ACTIVE) {
-            log.warn("Attempt to deposit to inactive account: accountNumber={}", requestDto.getAccountNumber());
-            throw new RuntimeException("Cannot deposit to an inactive account");
-        }
+        User user = getUserByEmail(userEmail);
+        BankAccount bankAccount = getAccountByNumber(requestDto.getAccountNumber());
+        validateAccountOwnership(bankAccount, user);
+        validateAccountStatusIsActive(bankAccount);
 
         BigDecimal newBalance =
                 bankAccount.getBalance()
@@ -147,23 +113,12 @@ public class AccountServiceImpl implements AccountService {
                 bankAccountRepository
                         .save(bankAccount);
 
-        Transaction transaction = new Transaction();
-
-        transaction.setTransactionType(
-                TransactionType.DEPOSIT
-        );
-
-        transaction.setAmount(
-                requestDto.getAmount()
-        );
-
-        transaction.setDescription(
+        createTransaction(
+                updatedAccount,
+                TransactionType.DEPOSIT,
+                requestDto.getAmount(),
                 "Amount deposited"
         );
-
-        transaction.setBankAccount(updatedAccount);
-
-        transactionRepository.save(transaction);
 
         log.info("Deposit successful. User: {}, Account Number: {}, New Balance: {}", userEmail, requestDto.getAccountNumber(), updatedAccount.getBalance());
 
@@ -182,40 +137,12 @@ public class AccountServiceImpl implements AccountService {
             String userEmail
     ) {
         log.info("Withdrawal initiated. User: {}, Account Number: {}, Amount: {}", userEmail, requestDto.getAccountNumber(), requestDto.getAmount());
-        User user =
-                userRepository
-                        .findByEmail(userEmail)
-                        .orElseThrow(
-                                () -> new ResourceNotFoundException(
-                                        "User not found"
-                                )
-                        );
+        User user = getUserByEmail(userEmail);
 
-        BankAccount account =
-                bankAccountRepository
-                        .findByAccountNumber(
-                                requestDto.getAccountNumber()
-                        )
-                        .orElseThrow(() -> {
-                            log.warn("Bank account not found for withdrawal. accountNumber={}", requestDto.getAccountNumber());
-                            return new RuntimeException("Bank account not found with account number: " + requestDto.getAccountNumber());
-                        });
-
-        if (!account.getUser().getId().equals(user.getId())) {
-            log.error("Unauthorized access attempt for withdrawal. userEmail={}, accountNumber={}", user.getEmail(), requestDto.getAccountNumber());
-            throw new RuntimeException("Unauthorized access to bank account");
-        }
-
-        if (account.getAccountStatus() != AccountStatus.ACTIVE) {
-            log.warn("Attempt to withdraw from inactive account: accountNumber={}", requestDto.getAccountNumber());
-            throw new RuntimeException("Cannot withdraw from an inactive account");
-        }
-
-        if (account.getBalance().compareTo(requestDto.getAmount()) < 0) {
-            throw new InsufficientBalanceException(
-                    "Insufficient balance"
-            );
-        }
+        BankAccount account = getAccountByNumber(requestDto.getAccountNumber());
+        validateAccountOwnership(account, user);
+        validateAccountStatusIsActive(account);
+        validateSufficientBalance(account, requestDto.getAmount());
 
         account.setBalance(
                 account.getBalance()
@@ -226,14 +153,12 @@ public class AccountServiceImpl implements AccountService {
                 bankAccountRepository
                         .save(account);
 
-        Transaction transaction = new Transaction();
-
-        transaction.setTransactionType(TransactionType.WITHDRAW);
-        transaction.setAmount(requestDto.getAmount());
-        transaction.setDescription("Amount withdrawn");
-        transaction.setBankAccount(updatedAccount);
-
-        transactionRepository.save(transaction);
+        createTransaction(
+                updatedAccount,
+                TransactionType.WITHDRAW,
+                requestDto.getAmount(),
+                "Amount withdrawn"
+        );
 
         log.info("Withdrawal successful. User: {}, Account Number: {}, New Balance: {}", userEmail, requestDto.getAccountNumber(), updatedAccount.getBalance());
 
@@ -260,45 +185,15 @@ public class AccountServiceImpl implements AccountService {
             throw new RuntimeException("Cannot transfer to the same account");
         }
 
-        User user =
-                userRepository
-                        .findByEmail(userEmail)
-                        .orElseThrow(
-                                () -> new ResourceNotFoundException(
-                                        "User not found"
-                                )
-                        );
+        User user = getUserByEmail(userEmail);
 
-        BankAccount senderAccount =
-                bankAccountRepository
-                        .findByAccountNumber(
-                                requestDto.getFromAccountNumber()
-                        )
-                        .orElseThrow(() -> {
-                            log.warn("Sender account not found for transfer: {}", requestDto.getFromAccountNumber());
-                            return new RuntimeException("Sender account not found with account number: " + requestDto.getFromAccountNumber());
-                        });
+        BankAccount senderAccount = getAccountByNumber(requestDto.getFromAccountNumber());
+        BankAccount receiverAccount = getAccountByNumber(requestDto.getToAccountNumber());
 
-        BankAccount receiverAccount =
-                bankAccountRepository
-                        .findByAccountNumber(
-                                requestDto.getToAccountNumber()
-                        )
-                        .orElseThrow(() -> {
-                            log.warn("Receiver account not found for transfer: {}", requestDto.getToAccountNumber());
-                            return new RuntimeException("Receiver account not found with account number: " + requestDto.getToAccountNumber());
-                        });
+        validateAccountStatusIsActive(senderAccount);
+        validateAccountStatusIsActive(receiverAccount);
 
-        if (senderAccount.getAccountStatus() != AccountStatus.ACTIVE || receiverAccount.getAccountStatus() != AccountStatus.ACTIVE) {
-            log.warn("Transfer attempted between inactive accounts. from={}, to={}", requestDto.getFromAccountNumber(), requestDto.getToAccountNumber());
-            throw new RuntimeException("Both accounts must be active for transfer");
-        }
-
-        if (senderAccount.getBalance().compareTo(requestDto.getAmount()) < 0) {
-            throw new InsufficientBalanceException(
-                    "Insufficient balance in sender account"
-            );
-        }
+        validateSufficientBalance(senderAccount, requestDto.getAmount());
 
         senderAccount.setBalance(
                 senderAccount.getBalance()
@@ -312,27 +207,26 @@ public class AccountServiceImpl implements AccountService {
         bankAccountRepository.save(senderAccount);
         bankAccountRepository.save(receiverAccount);
 
-        Transaction senderTransaction = new Transaction();
-        senderTransaction.setTransactionType(TransactionType.TRANSACTION_OUT);
-        senderTransaction.setAmount(requestDto.getAmount());
-        senderTransaction.setDescription("Transfer to " + receiverAccount.getAccountNumber());
-        senderTransaction.setBankAccount(senderAccount);
-        transactionRepository.save(senderTransaction);
+        createTransaction(
+                senderAccount,
+                TransactionType.TRANSACTION_OUT,
+                requestDto.getAmount(),
+                "Transfer to " + receiverAccount.getAccountNumber()
+        );
 
+        createTransaction(
+                receiverAccount,
+                TransactionType.TRANSACTION_IN,
+                requestDto.getAmount(),
+                "Transfer from " + senderAccount.getAccountNumber()
+        );
 
-        Transaction receiverTransaction = new Transaction();
-
-        receiverTransaction.setTransactionType(TransactionType.TRANSACTION_IN);
-        receiverTransaction.setAmount(requestDto.getAmount());
-        receiverTransaction.setDescription("Transfer from " + senderAccount.getAccountNumber());
-        receiverTransaction.setBankAccount(receiverAccount);
-        transactionRepository.save(receiverTransaction);
 
         log.info("Transfer successful. userId={}, userEmail={}, From Account={}, To Account={}, Amount={}", user.getId(), userEmail, requestDto.getFromAccountNumber(), requestDto.getToAccountNumber(), requestDto.getAmount());
 
         return new ApiResponseDto<>(
                 true,
-                "Amount transfred successfully",
+                "Amount transferred successfully",
                 null
         );
 
@@ -353,4 +247,56 @@ public class AccountServiceImpl implements AccountService {
                 + (100000000)
                 + random.nextInt(900000000);
     }
+
+    private User getUserByEmail(String userEmail) {
+
+        return userRepository.findByEmail(userEmail)
+                .orElseThrow(
+                        () -> new ResourceNotFoundException(
+                                "User not found with email: " + userEmail
+                        )
+                );
+    }
+
+    private BankAccount getAccountByNumber(String accountNumber) {
+        return bankAccountRepository.
+                findByAccountNumber(accountNumber)
+                .orElseThrow(
+                        () -> {
+                            log.warn("Bank account not found. accountNumber={}", accountNumber);
+                            return new RuntimeException("Bank account not found with account number: " + accountNumber);
+                        }
+                );
+    }
+
+    private void validateAccountOwnership(BankAccount bankAccount, User user) {
+        if (!bankAccount.getId().equals(user.getId())) {
+            log.warn("Unauthorized access attempt. userEmail={}, accountNumber={}", user.getEmail(), bankAccount.getAccountNumber());
+            throw new UnauthorizedException("Unauthorized access to bank account");
+        }
+    }
+
+    private void validateAccountStatusIsActive(BankAccount bankAccount) {
+        if (bankAccount.getAccountStatus() != AccountStatus.ACTIVE) {
+            log.warn("Attempt to operate on inactive account: accountNumber={}", bankAccount.getAccountNumber());
+            throw new BadRequestException("Bank account is not active");
+        }
+    }
+
+    private void validateSufficientBalance(BankAccount bankAccount, BigDecimal amount) {
+        if (bankAccount.getBalance().compareTo(amount) < 0) {
+            throw new InsufficientBalanceException("Insufficient balance in account: " + bankAccount.getAccountNumber());
+        }
+    }
+
+    private void createTransaction(BankAccount account, TransactionType transactionType, BigDecimal amount, String description) {
+        Transaction transaction = new Transaction();
+
+        transaction.setBankAccount(account);
+        transaction.setTransactionType(transactionType);
+        transaction.setAmount(amount);
+        transaction.setDescription(description);
+        transactionRepository.save(transaction);
+    }
+
 }
