@@ -19,6 +19,7 @@ import com.novabank.common.exceptions.ResourceNotFoundException;
 import com.novabank.transaction.entity.Transaction;
 import com.novabank.transaction.repository.TransactionRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,6 +29,7 @@ import java.util.Random;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AccountServiceImpl implements AccountService {
 
     private final BankAccountRepository bankAccountRepository;
@@ -39,6 +41,7 @@ public class AccountServiceImpl implements AccountService {
             CreateBankAccountRequestDto requestDto,
             String userEmail
     ) {
+        log.info("Creating bank account for user: {}", userEmail);
 
         User user = userRepository
                 .findByEmail(userEmail)
@@ -58,6 +61,8 @@ public class AccountServiceImpl implements AccountService {
         bankAccount.setUser(user);
 
         BankAccount savedAccount = bankAccountRepository.save(bankAccount);
+
+        log.info("Bank account created for user {} with account number: {}", userEmail, savedAccount.getAccountNumber());
 
         return new ApiResponseDto<>(
                 true,
@@ -102,6 +107,8 @@ public class AccountServiceImpl implements AccountService {
             DepositRequestDto requestDto,
             String userEmail
     ) {
+        log.info("Deposit initiated. User: {}, Account Number: {}, Amount: {}", userEmail, requestDto.getAccountNumber(), requestDto.getAmount());
+
         User user = userRepository
                 .findByEmail(userEmail)
                 .orElseThrow(
@@ -115,23 +122,19 @@ public class AccountServiceImpl implements AccountService {
                         .findByAccountNumber(
                                 requestDto.getAccountNumber()
                         )
-                        .orElseThrow(
-                                () -> new RuntimeException(
-                                        "Bank account not found with account number: " + requestDto.getAccountNumber()
-                                )
-                        );
+                        .orElseThrow(() -> {
+                            log.warn("Bank account not found for deposit. accountNumber={}", requestDto.getAccountNumber());
+                            return new RuntimeException("Bank account not found with account number: " + requestDto.getAccountNumber());
+                        });
 
-        if (!bankAccount.getUser()
-                .getId().equals(user.getId())) {
-            throw new RuntimeException(
-                    "Unauthorized access to bank account"
-            );
+        if (!bankAccount.getUser().getId().equals(user.getId())) {
+            log.error("Unauthorized access attempt for deposit. userEmail={}, accountNumber={}", user.getEmail(), requestDto.getAccountNumber());
+            throw new RuntimeException("Unauthorized access to bank account");
         }
 
         if (bankAccount.getAccountStatus() != AccountStatus.ACTIVE) {
-            throw new RuntimeException(
-                    "Cannot deposit to an inactive account"
-            );
+            log.warn("Attempt to deposit to inactive account: accountNumber={}", requestDto.getAccountNumber());
+            throw new RuntimeException("Cannot deposit to an inactive account");
         }
 
         BigDecimal newBalance =
@@ -162,6 +165,8 @@ public class AccountServiceImpl implements AccountService {
 
         transactionRepository.save(transaction);
 
+        log.info("Deposit successful. User: {}, Account Number: {}, New Balance: {}", userEmail, requestDto.getAccountNumber(), updatedAccount.getBalance());
+
         return new ApiResponseDto<>(
                 true,
                 "Amount deposited successfully",
@@ -176,6 +181,7 @@ public class AccountServiceImpl implements AccountService {
             WithdrawRequestDto requestDto,
             String userEmail
     ) {
+        log.info("Withdrawal initiated. User: {}, Account Number: {}, Amount: {}", userEmail, requestDto.getAccountNumber(), requestDto.getAmount());
         User user =
                 userRepository
                         .findByEmail(userEmail)
@@ -190,23 +196,19 @@ public class AccountServiceImpl implements AccountService {
                         .findByAccountNumber(
                                 requestDto.getAccountNumber()
                         )
-                        .orElseThrow(
-                                () -> new RuntimeException(
-                                        "Bank account not found with account number: " + requestDto.getAccountNumber()
-                                )
-                        );
+                        .orElseThrow(() -> {
+                            log.warn("Bank account not found for withdrawal. accountNumber={}", requestDto.getAccountNumber());
+                            return new RuntimeException("Bank account not found with account number: " + requestDto.getAccountNumber());
+                        });
 
-        if (!account.getUser()
-                .getId().equals(user.getId())) {
-            throw new RuntimeException(
-                    "Unauthorized access to bank account"
-            );
+        if (!account.getUser().getId().equals(user.getId())) {
+            log.error("Unauthorized access attempt for withdrawal. userEmail={}, accountNumber={}", user.getEmail(), requestDto.getAccountNumber());
+            throw new RuntimeException("Unauthorized access to bank account");
         }
 
         if (account.getAccountStatus() != AccountStatus.ACTIVE) {
-            throw new RuntimeException(
-                    "Cannot withdraw from an inactive account"
-            );
+            log.warn("Attempt to withdraw from inactive account: accountNumber={}", requestDto.getAccountNumber());
+            throw new RuntimeException("Cannot withdraw from an inactive account");
         }
 
         if (account.getBalance().compareTo(requestDto.getAmount()) < 0) {
@@ -233,6 +235,8 @@ public class AccountServiceImpl implements AccountService {
 
         transactionRepository.save(transaction);
 
+        log.info("Withdrawal successful. User: {}, Account Number: {}, New Balance: {}", userEmail, requestDto.getAccountNumber(), updatedAccount.getBalance());
+
         return new ApiResponseDto<>(
                 true,
                 "Amount withdrawn successfully",
@@ -248,11 +252,12 @@ public class AccountServiceImpl implements AccountService {
             TransferRequestDto requestDto,
             String userEmail
     ) {
-        if (requestDto.getFromAccountNumber().
-                equals(requestDto.getToAccountNumber())) {
-            throw new RuntimeException(
-                    "Cannot transfer to the same account"
-            );
+
+        log.info("Transfer initiated. User: {}, From Account: {}, To Account: {}, Amount: {}", userEmail, requestDto.getFromAccountNumber(), requestDto.getToAccountNumber(), requestDto.getAmount());
+
+        if (requestDto.getFromAccountNumber().equals(requestDto.getToAccountNumber())) {
+            log.warn("Transfer request with identical source and destination account: accountNumber={}", requestDto.getFromAccountNumber());
+            throw new RuntimeException("Cannot transfer to the same account");
         }
 
         User user =
@@ -269,28 +274,24 @@ public class AccountServiceImpl implements AccountService {
                         .findByAccountNumber(
                                 requestDto.getFromAccountNumber()
                         )
-                        .orElseThrow(
-                                () -> new RuntimeException(
-                                        "Sender account not found with account number: " + requestDto.getFromAccountNumber()
-                                )
-                        );
+                        .orElseThrow(() -> {
+                            log.warn("Sender account not found for transfer: {}", requestDto.getFromAccountNumber());
+                            return new RuntimeException("Sender account not found with account number: " + requestDto.getFromAccountNumber());
+                        });
 
         BankAccount receiverAccount =
                 bankAccountRepository
                         .findByAccountNumber(
                                 requestDto.getToAccountNumber()
                         )
-                        .orElseThrow(
-                                () -> new RuntimeException(
-                                        "Receiver account not found with account number: " + requestDto.getToAccountNumber()
-                                )
-                        );
+                        .orElseThrow(() -> {
+                            log.warn("Receiver account not found for transfer: {}", requestDto.getToAccountNumber());
+                            return new RuntimeException("Receiver account not found with account number: " + requestDto.getToAccountNumber());
+                        });
 
-        if (senderAccount.getAccountStatus() != AccountStatus.ACTIVE ||
-                receiverAccount.getAccountStatus() != AccountStatus.ACTIVE) {
-            throw new RuntimeException(
-                    "Both accounts must be active for transfer"
-            );
+        if (senderAccount.getAccountStatus() != AccountStatus.ACTIVE || receiverAccount.getAccountStatus() != AccountStatus.ACTIVE) {
+            log.warn("Transfer attempted between inactive accounts. from={}, to={}", requestDto.getFromAccountNumber(), requestDto.getToAccountNumber());
+            throw new RuntimeException("Both accounts must be active for transfer");
         }
 
         if (senderAccount.getBalance().compareTo(requestDto.getAmount()) < 0) {
@@ -327,6 +328,8 @@ public class AccountServiceImpl implements AccountService {
         receiverTransaction.setBankAccount(receiverAccount);
         transactionRepository.save(receiverTransaction);
 
+        log.info("Transfer successful. userId={}, userEmail={}, From Account={}, To Account={}, Amount={}", user.getId(), userEmail, requestDto.getFromAccountNumber(), requestDto.getToAccountNumber(), requestDto.getAmount());
+
         return new ApiResponseDto<>(
                 true,
                 "Amount transfred successfully",
@@ -337,13 +340,13 @@ public class AccountServiceImpl implements AccountService {
 
 
     private String generateAccountNumber() {
-        /**
+        /*
          * Need to implement later :
          * Branch/Region Code (2–3 digits): Identifies where the account was opened.
          * Product/Account Type Code (2 digits): Identifies if it's Savings (e.g., 10), Current (20), Loan (30), etc.
          * Unique Sequence Number (5–7 digits): A sequential or masked auto-incrementing number from your database.
          * Check Digit (1 digit): A final digit calculated using a checksum algorithm (like Luhn or Modulo 11) to catch typos and data entry errors.
-         * */
+         */
 
         Random random = new Random();
         return "NB"
