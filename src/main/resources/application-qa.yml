@@ -1,8 +1,8 @@
 spring:
   datasource:
-    url: jdbc:mysql://localhost:3306/nova_bank_dev_db
-    username: nova_dev_user
-    password: NovaDev@2026
+    url: jdbc:mysql://localhost:3306/nova_bank_qa_db
+    username: nova_qa_user
+    password: NovaQa@2026
     driver-class-name: com.mysql.cj.jdbc.Driver
 
   jpa:
@@ -15,4 +15,4 @@ jwt:
   secret-key: YjM0NjM0YjE2NmQ4NzQ2Y2YxOWJmODFkNjQ4YzQ5N2Q0OWQ2M2Q5YzY1ZmJhN2I0NzA2YzY0ZWQxNTA2M2Q4OA==
 
 server:
-  port: 8081
+  port: 8082

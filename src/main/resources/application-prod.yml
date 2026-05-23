@@ -1,8 +1,8 @@
 spring:
   datasource:
-    url: ${DB_URL}
-    username: ${DB_USERNAME}
-    password: ${DB_PASSWORD}
+    url: jdbc:mysql://localhost:3306/nova_bank_prod_db
+    username: nova_prod_user
+    password: NovaProd@2026
     driver-class-name: com.mysql.cj.jdbc.Driver
 
   jpa:
@@ -12,7 +12,6 @@ spring:
     show-sql: false
 
 jwt:
-  secret-key: ${JWT_SECRET_KEY}
-
+  secret-key: YjM0NjM0YjE2NmQ4NzQ2Y2YxOWJmODFkNjQ4YzQ5N2Q0OWQ2M2Q5YzY1ZmJhN2I0NzA2YzY0ZWQxNTA2M2Q4OA==
 server:
-  port: ${PORT:8081}
+  port: 8083
