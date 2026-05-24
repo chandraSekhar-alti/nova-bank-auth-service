@@ -2,6 +2,7 @@ package com.novabank.customer.entity;
 
 
 import com.novabank.auth.entity.BaseEntity;
+import com.novabank.customer.enums.AddressType;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -37,4 +38,8 @@ public class Address extends BaseEntity {
 
     @Column(name = "country")
     private String country;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "address_type")
+    private AddressType addressType;
 }
