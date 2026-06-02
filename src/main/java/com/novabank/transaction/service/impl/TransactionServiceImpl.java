@@ -12,19 +12,13 @@ import com.novabank.transaction.dto.response.TransactionResponseDto;
 import com.novabank.transaction.mapper.TransactionMapper;
 import com.novabank.transaction.repository.TransactionRepository;
 import com.novabank.transaction.service.TramsactionService.TransactionService;
-import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import javax.sql.DataSource;
-import java.util.Collections;
-import java.util.List;
 
 
 @Service
@@ -38,16 +32,6 @@ public class TransactionServiceImpl implements TransactionService {
     private final UserRepository userRepository;
     private final TransactionMapper transactionMapper;
 
-    @Autowired
-    private DataSource dataSource;
-
-    @PostConstruct
-    public void printDbInfo() throws Exception {
-        System.out.println(
-                dataSource.getConnection().getMetaData().getURL()
-        );
-    }
-
     @Override
     @Transactional(readOnly = true)
     public ApiResponseDto<Page<TransactionResponseDto>> getTransactions(
@@ -59,59 +43,26 @@ public class TransactionServiceImpl implements TransactionService {
 
         validateInputParameters(accountNumber, userEmail);
 
-        User user = userRepository
-                .findByEmail(userEmail)
-                .orElseThrow(() -> {
-                    log.warn("User authentication failed: Email not found - {}", userEmail);
-                    return new ResourceNotFoundException(
-                            "User not found with email: " + userEmail
-                    );
-                });
-
+        User user = getUserByEmail(userEmail);
         log.debug("User authenticated: userId={}", user.getId());
 
-        BankAccount bankAccount = bankAccountRepository
-                .findByAccountNumber(accountNumber)
-                .orElseThrow(() -> {
-                    log.warn(
-                            "Account lookup failed: accountNumber={}, requestedBy={}",
-                            accountNumber,
-                            userEmail
-                    );
-                    return new AccountNotFoundException(
-                            "Bank account not found with number: " + accountNumber
-                    );
-                });
-
+        BankAccount bankAccount = findBankAccountByAccountNumber(accountNumber, userEmail);
         log.debug("Account found: accountId={}, accountNumber={}", bankAccount.getId(), accountNumber);
 
-        if (!isAccountOwner(bankAccount, user)) {
-            log.error(
-                    "SECURITY ALERT: Unauthorized account access attempt - userId={}, accountNumber={}, accountOwnerId={}",
-                    user.getId(),
-                    accountNumber,
-                    bankAccount.getUser().getId()
-            );
-            throw new InvalidAccountAccessException(
-                    "Access denied: You do not have permission to view transactions for account " + accountNumber
-            );
-        }
-
-        log.info("Authorization successful: User accessing their own account transactions - userId={}, accountId={}",
-                user.getId(), bankAccount.getId());
+        validateAccountOwnership(bankAccount, user, accountNumber);
+        log.info("Authorization successful: User accessing their own account transactions - userId={}, accountId={}", user.getId(), bankAccount.getId());
 
         Pageable pageable = PageRequest.of(page, size);
 
         Page<TransactionResponseDto> responseList =
                 transactionRepository
-                .findByBankAccountOrderByCreatedAtDesc(
-                        bankAccount,
-                        pageable
-                )
-                .map(transactionMapper::toTransactionResponse);
+                        .findByBankAccountOrderByCreatedAtDesc(
+                                bankAccount,
+                                pageable
+                        )
+                        .map(transactionMapper::toTransactionResponse);
 
-        log.info("Transactions retrieved successfully - userId={}, accountId={}, transactionCount={}",
-                user.getId(), bankAccount.getId(), responseList);
+        log.info("Transactions retrieved successfully - userId={}, accountId={}, transactionCount={}", user.getId(), bankAccount.getId(), responseList);
 
         return new ApiResponseDto<>(
                 true,
@@ -137,4 +88,35 @@ public class TransactionServiceImpl implements TransactionService {
                 bankAccount.getUser().getId() != null &&
                 bankAccount.getUser().getId().equals(user.getId());
     }
+
+    private User getUserByEmail(String userEmail) {
+        return userRepository.findByEmail(userEmail)
+                .orElseThrow(
+                        () -> new ResourceNotFoundException(
+                                "User not found with email: " + userEmail
+                        )
+                );
+    }
+
+    private BankAccount findBankAccountByAccountNumber(String accountNumber, String userEmail) {
+        return bankAccountRepository
+                .findByAccountNumber(accountNumber)
+                .orElseThrow(() -> {
+                    log.warn("Account lookup failed: accountNumber={}, requestedBy={}", accountNumber, userEmail);
+                    return new AccountNotFoundException(
+                            "Bank account not found with number: " + accountNumber
+                    );
+                });
+    }
+
+    private void validateAccountOwnership(BankAccount bankAccount, User user, String accountNumber){
+        if(!isAccountOwner(bankAccount, user)){
+            log.error("SECURITY ALERT: Unauthorized account access attempt - userId={}, accountNumber={}, accountOwnerId={}", user.getId(), accountNumber, bankAccount.getUser().getId());
+
+            throw new InvalidAccountAccessException(
+                    "Access denied: You do not have permission to view transactions for account " + accountNumber
+            );
+        }
+    }
+
 }
