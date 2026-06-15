@@ -9,6 +9,7 @@ springdoc:
 jwt:
   access-token-expiration: 900000
   refresh-token-expiration: 604800000
+  secret-key: YjM0NjM0YjE2NmQ4NzQ2Y2YxOWJmODFkNjQ4YzQ5N2Q0OWQ2M2Q5YzY1ZmJhN2I0NzA2YzY0ZWQxNTA2M2Q4OA==
 
 server:
   port: 8081

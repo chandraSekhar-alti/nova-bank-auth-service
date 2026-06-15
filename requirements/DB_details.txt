@@ -1,0 +1,37 @@
+DB : 
+
+DEV CONNECTION:
+
+name 		: nova_bank_dev_db
+Host		: localhost
+Port		: 3306
+Username	: nova_dev_user
+Password	: NovaDev@2026
+
+
+
+QA CONNECTION:
+
+name 		: nova_bank_qa_db
+Host		: localhost
+Port		: 3306
+Username	: nova_qa_user
+Password	: NovaQa@2026
+
+
+
+PROD CONNECTION:
+
+name 		: nova_bank_prod_db
+Host		: localhost
+Port		: 3306
+Username	: nova_prod_user
+Password	: NovaProd@2026
+
+
+
+Server : 
+8081 - for dev
+8082 - for qa
+8083 - for prod
+
